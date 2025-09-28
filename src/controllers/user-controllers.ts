@@ -1,4 +1,4 @@
-import {PrismaClient} from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 import { Request, Response } from 'express';
 dotenv.config();
@@ -20,12 +20,17 @@ function convertBigIntToString(value: any): any {
 
 export async function InsertSeller(req: Request, res: Response) {
   try {
+    const { company_name, contact_person, email, phone } = req.body;
+
+    if (!company_name || !contact_person || !email || !phone) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
     const newSeller = await prisma.seller.create({
       data: {
-        company_name: "John's Store",
-        contact_person: "John Doe",
-        email: "john.doe@example.com",
-        phone: "123-456-7890",
+        company_name,
+        contact_person,
+        email,
+        phone,
         is_verified: false,
         is_active: true,
       },
@@ -38,20 +43,20 @@ export async function InsertSeller(req: Request, res: Response) {
       message: "Seller inserted successfully",
       seller: safeSeller,
     });
-  } catch (err) {
-    console.error("Error inserting seller:", err);
-    return res.status(500).json({ error: "Failed to insert seller" });
+  } catch (err: any) {
+    // console.error("Error inserting seller:", err.message);
+    return res.status(500).json({ error: err.message || "Failed to insert seller" });
   }
 }
 
 
-export async function GetAllSellers(req:Request, res:Response){
-    try {
-        const sellers = await prisma.seller.findMany();
-        const safeSellers = convertBigIntToString(sellers);
-        res.json({ message: "Fetched all sellers successfully", sellers: safeSellers });
-    } catch (err) {
-        console.error("Error fetching sellers:", err);
-        res.status(500).json({ error: "Failed to fetch sellers" });
-    }
+export async function GetAllSellers(req: Request, res: Response) {
+  try {
+    const sellers = await prisma.seller.findMany();
+    const safeSellers = convertBigIntToString(sellers);
+    res.json({ message: "Fetched all sellers successfully", sellers: safeSellers });
+  } catch (err) {
+    console.error("Error fetching sellers:", err);
+    res.status(500).json({ error: "Failed to fetch sellers" });
+  }
 }
