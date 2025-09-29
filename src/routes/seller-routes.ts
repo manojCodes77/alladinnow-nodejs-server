@@ -6,5 +6,4 @@ const router = Router();
 router.get("/all", GetAllSellers);
 router.post("/", InsertSeller);
 
-
 export default router;

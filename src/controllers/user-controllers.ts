@@ -1,22 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 import { Request, Response } from 'express';
+import { convertBigIntToString } from '../utils/main';
 dotenv.config();
 
 const prisma = new PrismaClient();
-
-function convertBigIntToString(value: any): any {
-  if (typeof value === "bigint") return value.toString();
-  if (Array.isArray(value)) return value.map(convertBigIntToString);
-  if (value && typeof value === "object") {
-    const out: Record<string, any> = {};
-    for (const k of Object.keys(value)) {
-      out[k] = convertBigIntToString((value as any)[k]);
-    }
-    return out;
-  }
-  return value;
-}
 
 export async function InsertSeller(req: Request, res: Response) {
   try {

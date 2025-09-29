@@ -7,9 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Prisma schema mapped to your existing Postgres tables created by pgAdmin
-// Models use PascalCase names and are mapped to the snake_case table names
-
 model Seller {
   seller_id      BigInt                 @id @default(autoincrement()) @db.BigInt
   company_name   String                 @db.VarChar(255)
