@@ -21,7 +21,9 @@
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^6.16.2",
+    "@types/bcrypt": "^6.0.0",
     "@types/pg": "^8.15.5",
+    "bcrypt": "^6.0.0",
     "dotenv": "^17.2.2",
     "express": "^4.21.2",
     "pg": "^8.16.3",

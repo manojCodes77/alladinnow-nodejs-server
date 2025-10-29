@@ -7,52 +7,388 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ==================== USER & AUTH ====================
+
+model users {
+  user_id        BigInt    @id @default(autoincrement()) @db.BigInt
+  email          String    @unique @db.VarChar(255)
+  password_hash  String    @db.Text
+  role           String    @db.VarChar(20) // 'buyer', 'seller', 'admin'
+  is_verified    Boolean   @default(false)
+  status         String    @default("active") @db.VarChar(20) // 'active', 'inactive', 'suspended'
+  email_verified Boolean   @default(false)
+  last_login     DateTime?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @default(now()) @updatedAt
+
+  // Relations
+  buyer_businesses business[] @relation("user_buyer_businesses")
+
+  @@map("users")
+}
+
+// ==================== BUSINESS ====================
+
+model business_types {
+  business_type_id BigInt   @id @default(autoincrement()) @db.BigInt
+  type_name        String   @db.VarChar(100)
+  description      String?  @db.Text
+  created_at       DateTime @default(now())
+
+  // Relations
+  businesses business[]
+
+  @@map("business_types")
+}
+
+model business {
+  business_id           BigInt    @id @default(autoincrement()) @db.BigInt
+  user_id               BigInt?   @db.BigInt
+  business_type_id      BigInt?   @db.BigInt
+  business_name         String    @db.VarChar(255)
+  display_name          String?   @db.VarChar(255)
+  company_legal_name    String?   @db.VarChar(255)
+  description           String?   @db.Text
+  license_number        String?   @db.VarChar(100)
+  tax_number            String?   @db.VarChar(100)
+  website_url           String?   @db.VarChar(255)
+  employee_count        Int?
+  year_established      Int?
+  is_verified           Boolean   @default(false)
+  verification_level    String?   @db.VarChar(50)
+  address_line1         String?   @db.VarChar(255)
+  address_line2         String?   @db.VarChar(255)
+  city                  String?   @db.VarChar(100)
+  state                 String?   @db.VarChar(100)
+  country               String?   @db.VarChar(100)
+  pincode               String?   @db.VarChar(20)
+  primary_contact_phone String?   @db.VarChar(40)
+  primary_contact_email String?   @db.VarChar(255)
+  verified_at           DateTime?
+  verified_by           BigInt?   @db.BigInt
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @default(now()) @updatedAt
+
+  // Relations
+  business_type business_types? @relation(fields: [business_type_id], references: [business_type_id])
+  user          users?          @relation("user_buyer_businesses", fields: [user_id], references: [user_id])
+
+  documents          business_documents[]   @relation("business_documents")
+  buyer_connections  business_connections[] @relation("buyer_connections")
+  seller_connections business_connections[] @relation("seller_connections")
+
+  products          products[]   @relation("business_products")
+  buyer_orders      orders[]     @relation("buyer_orders")
+  seller_orders     orders[]     @relation("seller_orders")
+  buyer_inquiries   inquiries[]  @relation("buyer_inquiries")
+  seller_quotations quotations[] @relation("seller_quotations")
+  reviewer_reviews  reviews[]    @relation("reviewer_reviews")
+  reviewed_reviews  reviews[]    @relation("reviewed_reviews")
+
+  @@index([user_id])
+  @@index([business_type_id])
+  @@map("business")
+}
+
+model business_documents {
+  document_id   BigInt    @id @default(autoincrement()) @db.BigInt
+  business_id   BigInt    @db.BigInt
+  document_type String    @db.VarChar(50) // 'license', 'tax_certificate', 'incorporation', etc.
+  document_name String?   @db.VarChar(255)
+  document_url  String    @db.Text
+  is_verified   Boolean   @default(false)
+  verified_at   DateTime?
+  verified_by   BigInt?   @db.BigInt
+  uploaded_at   DateTime  @default(now())
+
+  // Relations
+  business business @relation("business_documents", fields: [business_id], references: [business_id], onDelete: Cascade)
+
+  @@index([business_id])
+  @@map("business_documents")
+}
+
+model business_connections {
+  connection_id      BigInt   @id @default(autoincrement()) @db.BigInt
+  buyer_business_id  BigInt   @db.BigInt
+  seller_business_id BigInt   @db.BigInt
+  following_since    DateTime @default(now())
+  is_following       Boolean  @default(true)
+  created_at         DateTime @default(now())
+
+  // Relations
+  buyer_business  business @relation("buyer_connections", fields: [buyer_business_id], references: [business_id], onDelete: Cascade)
+  seller_business business @relation("seller_connections", fields: [seller_business_id], references: [business_id], onDelete: Cascade)
+
+  @@unique([buyer_business_id, seller_business_id])
+  @@index([buyer_business_id])
+  @@index([seller_business_id])
+  @@map("business_connections")
+}
+
+// ==================== CATEGORIES ====================
+
+model categories {
+  category_id        BigInt   @id @default(autoincrement()) @db.BigInt
+  parent_category_id BigInt?  @db.BigInt
+  category_name      String   @db.VarChar(255)
+  slug               String?  @unique @db.VarChar(255)
+  description        String?  @db.Text
+  is_active          Boolean  @default(true)
+  display_order      Int?
+  created_at         DateTime @default(now())
+  updated_at         DateTime @default(now()) @updatedAt
+
+  // Self-relation for hierarchy
+  parent_category categories?  @relation("category_hierarchy", fields: [parent_category_id], references: [category_id])
+  subcategories   categories[] @relation("category_hierarchy")
+
+  // Relations
+  products products[]
+
+  @@index([parent_category_id])
+  @@map("categories")
+}
+
+// ==================== PRODUCTS ====================
+
+model products {
+  product_id         BigInt   @id @default(autoincrement()) @db.BigInt
+  business_id        BigInt?  @db.BigInt
+  category_id        BigInt   @db.BigInt
+  product_name       String   @db.VarChar(255)
+  slug               String?  @unique @db.VarChar(255)
+  description        String?  @db.Text
+  specifications     String?  @db.Text
+  base_price         Decimal? @db.Decimal(15, 2)
+  currency           String   @default("USD") @db.VarChar(10)
+  price_unit         String?  @db.VarChar(50) // 'piece', 'kg', 'ton', etc.
+  min_order_quantity Int?
+  max_order_quantity Int?
+  unit_in_stock      Int?
+  available_quantity Int?
+  hs_code            String?  @db.VarChar(20)
+  brand              String?  @db.VarChar(100)
+  manufacturer       String?  @db.VarChar(255)
+  country_of_origin  String?  @db.VarChar(100)
+  status             String   @default("draft") @db.VarChar(20) // 'draft', 'active', 'inactive', 'discontinued'
+  is_featured        Boolean  @default(false)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @default(now()) @updatedAt
+
+  // Relations
+  category categories @relation(fields: [category_id], references: [category_id])
+  business business?  @relation("business_products", fields: [business_id], references: [business_id])
+
+  images      product_images[]
+  order_items order_items[]
+  inquiries   inquiries[]
+
+  @@index([category_id])
+  @@index([business_id])
+  @@index([status])
+  @@map("products")
+}
+
+model product_images {
+  image_id      BigInt   @id @default(autoincrement()) @db.BigInt
+  product_id    BigInt   @db.BigInt
+  image_url     String   @db.Text
+  display_order Int?
+  is_primary    Boolean  @default(false)
+  uploaded_at   DateTime @default(now())
+
+  // Relations
+  product products @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
+
+  @@index([product_id])
+  @@map("product_images")
+}
+
+// ==================== ORDERS ====================
+
+model orders {
+  order_id               BigInt    @id @default(autoincrement()) @db.BigInt
+  buyer_business_id      BigInt    @db.BigInt
+  seller_business_id     BigInt    @db.BigInt
+  order_number           String?   @unique @db.VarChar(100)
+  status                 String    @default("pending") @db.VarChar(50) // 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'
+  tax_amount             Decimal?  @db.Decimal(15, 2)
+  discount_amount        Decimal?  @db.Decimal(15, 2)
+  shipping_amount        Decimal?  @db.Decimal(15, 2)
+  final_amount           Decimal?  @db.Decimal(15, 2)
+  currency               String    @default("USD") @db.VarChar(10)
+  delivery_address       String?   @db.Text
+  delivery_city          String?   @db.VarChar(100)
+  delivery_state         String?   @db.VarChar(100)
+  delivery_pincode       String?   @db.VarChar(20)
+  delivery_country       String?   @db.VarChar(100)
+  expected_delivery_date DateTime?
+  payment_status         String    @default("pending") @db.VarChar(50) // 'pending', 'paid', 'partial', 'failed'
+  buyer_notes            String?   @db.Text
+  seller_notes           String?   @db.Text
+  created_at             DateTime  @default(now())
+  updated_at             DateTime  @default(now()) @updatedAt
+
+  // Relations
+  buyer_business  business @relation("buyer_orders", fields: [buyer_business_id], references: [business_id])
+  seller_business business @relation("seller_orders", fields: [seller_business_id], references: [business_id])
+
+  order_items order_items[]
+  reviews     reviews[]
+
+  @@index([buyer_business_id])
+  @@index([seller_business_id])
+  @@index([status])
+  @@map("orders")
+}
+
+model order_items {
+  order_item_id BigInt   @id @default(autoincrement()) @db.BigInt
+  order_id      BigInt   @db.BigInt
+  product_id    BigInt   @db.BigInt
+  product_name  String?  @db.VarChar(255)
+  quantity_unit Int?
+  unit_price    Decimal? @db.Decimal(15, 2)
+  discount_rate Decimal? @db.Decimal(5, 2)
+  total_price   Decimal? @db.Decimal(15, 2)
+  tax_rate      Decimal? @db.Decimal(5, 2)
+  hs_code       String?  @db.VarChar(20)
+
+  // Relations
+  order   orders   @relation(fields: [order_id], references: [order_id], onDelete: Cascade)
+  product products @relation(fields: [product_id], references: [product_id])
+
+  @@index([order_id])
+  @@index([product_id])
+  @@map("order_items")
+}
+
+// ==================== REVIEWS ====================
+
+model reviews {
+  review_id              BigInt   @id @default(autoincrement()) @db.BigInt
+  order_id               BigInt   @db.BigInt
+  reviewer_business_id   BigInt   @db.BigInt
+  reviewed_business_id   BigInt   @db.BigInt
+  rating                 Int // 1-5
+  review_text            String?  @db.Text
+  product_quality_rating Int? // 1-5
+  delivery_rating        Int? // 1-5
+  communication_rating   Int? // 1-5
+  is_approved            Boolean  @default(false)
+  created_at             DateTime @default(now())
+  updated_at             DateTime @default(now()) @updatedAt
+
+  // Relations
+  order             orders   @relation(fields: [order_id], references: [order_id])
+  reviewer_business business @relation("reviewer_reviews", fields: [reviewer_business_id], references: [business_id])
+  reviewed_business business @relation("reviewed_reviews", fields: [reviewed_business_id], references: [business_id])
+
+  @@index([order_id])
+  @@index([reviewer_business_id])
+  @@index([reviewed_business_id])
+  @@map("reviews")
+}
+
+// ==================== INQUIRIES & QUOTATIONS ====================
+
+model inquiries {
+  inquiry_id        BigInt    @id @default(autoincrement()) @db.BigInt
+  buyer_business_id BigInt    @db.BigInt
+  product_id        BigInt?   @db.BigInt
+  inquiry_title     String    @db.VarChar(255)
+  description       String?   @db.Text
+  required_quantity Int?
+  budget_range      String?   @db.VarChar(100)
+  expected_delivery DateTime?
+  status            String    @default("open") @db.VarChar(50) // 'open', 'quoted', 'closed', 'expired'
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @default(now()) @updatedAt
+
+  // Relations
+  buyer_business business  @relation("buyer_inquiries", fields: [buyer_business_id], references: [business_id])
+  product        products? @relation(fields: [product_id], references: [product_id])
+
+  quotations quotations[]
+
+  @@index([buyer_business_id])
+  @@index([product_id])
+  @@index([status])
+  @@map("inquiries")
+}
+
+model quotations {
+  quotation_id       BigInt   @id @default(autoincrement()) @db.BigInt
+  inquiry_id         BigInt   @db.BigInt
+  seller_business_id BigInt   @db.BigInt
+  validity_days      Int?
+  delivery_time_days Int?
+  payment_terms      String?  @db.Text
+  other_terms        String?  @db.Text
+  status             String   @default("draft") @db.VarChar(50) // 'draft', 'sent', 'accepted', 'rejected', 'expired'
+  setup              String?  @db.Text
+  created_at         DateTime @default(now())
+  updated_at         DateTime @default(now()) @updatedAt
+
+  // Relations
+  inquiry         inquiries @relation(fields: [inquiry_id], references: [inquiry_id])
+  seller_business business  @relation("seller_quotations", fields: [seller_business_id], references: [business_id])
+
+  @@index([inquiry_id])
+  @@index([seller_business_id])
+  @@index([status])
+  @@map("quotations")
+}
+
+// ==================== LEGACY SELLER MODELS (Keep for compatibility) ====================
+
 model Seller {
-  seller_id      BigInt                 @id @default(autoincrement()) @db.BigInt
-  company_name   String                 @db.VarChar(255)
-  contact_person String?                @db.VarChar(100)
-  email          String                 @unique @db.VarChar(255)
-  phone          String?                @db.VarChar(40)
-  is_verified    Boolean                @default(false)
-  is_active      Boolean                @default(true)
-  created_at     DateTime               @default(now())
-  updated_at     DateTime               @default(now())
+  seller_id      BigInt   @id @default(autoincrement()) @db.BigInt
+  company_name   String   @db.VarChar(255)
+  contact_person String?  @db.VarChar(100)
+  email          String   @unique @db.VarChar(255)
+  phone          String?  @db.VarChar(40)
+  is_verified    Boolean  @default(false)
+  is_active      Boolean  @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @default(now())
 
   // relations
-  addresses      SellerAddress[]        @relation("Seller_addresses")
-  auth           SellerAuth?            @relation("Seller_auth")
-  bank_accounts  SellerBankAccount[]    @relation("Seller_bank_accounts")
-  documents      SellerDocument[]       @relation("Seller_documents")
-  stats          SellerStat?            @relation("Seller_stats")
+  addresses     SellerAddress[]     @relation("Seller_addresses")
+  auth          SellerAuth?         @relation("Seller_auth")
+  bank_accounts SellerBankAccount[] @relation("Seller_bank_accounts")
+  documents     SellerDocument[]    @relation("Seller_documents")
+  stats         SellerStat?         @relation("Seller_stats")
 
   @@map("sellers")
 }
 
 model SellerAddress {
-  address_id   BigInt   @id @default(autoincrement()) @db.BigInt
-  seller_id    BigInt   @db.BigInt
-  label        String?  @db.VarChar(50)
-  address      String?  @db.Text
-  city         String?  @db.VarChar(100)
-  state        String?  @db.VarChar(100)
-  country      String?  @db.VarChar(100)
-  postal_code  String?  @db.VarChar(20)
-  is_primary   Boolean  @default(false)
-  created_at   DateTime @default(now())
+  address_id  BigInt   @id @default(autoincrement()) @db.BigInt
+  seller_id   BigInt   @db.BigInt
+  label       String?  @db.VarChar(50)
+  address     String?  @db.Text
+  city        String?  @db.VarChar(100)
+  state       String?  @db.VarChar(100)
+  country     String?  @db.VarChar(100)
+  postal_code String?  @db.VarChar(20)
+  is_primary  Boolean  @default(false)
+  created_at  DateTime @default(now())
 
-  seller       Seller   @relation("Seller_addresses", fields: [seller_id], references: [seller_id], onDelete: Cascade)
+  seller Seller @relation("Seller_addresses", fields: [seller_id], references: [seller_id], onDelete: Cascade)
 
-  @@map("seller_addresses")
   @@index([seller_id])
+  @@map("seller_addresses")
 }
 
 model SellerAuth {
-  seller_id            BigInt   @id @db.BigInt
-  password_hash        String   @db.Text
+  seller_id            BigInt    @id @db.BigInt
+  password_hash        String    @db.Text
   last_password_change DateTime?
-  failed_logins        Int      @default(0)
+  failed_logins        Int       @default(0)
 
-  seller               Seller   @relation("Seller_auth", fields: [seller_id], references: [seller_id], onDelete: Cascade)
+  seller Seller @relation("Seller_auth", fields: [seller_id], references: [seller_id], onDelete: Cascade)
 
   @@map("seller_auth")
 }
@@ -66,34 +402,34 @@ model SellerBankAccount {
   is_active       Boolean  @default(true)
   created_at      DateTime @default(now())
 
-  seller          Seller   @relation("Seller_bank_accounts", fields: [seller_id], references: [seller_id], onDelete: Cascade)
+  seller Seller @relation("Seller_bank_accounts", fields: [seller_id], references: [seller_id], onDelete: Cascade)
 
-  @@map("seller_bank_accounts")
   @@index([seller_id])
+  @@map("seller_bank_accounts")
 }
 
 model SellerDocument {
-  document_id  BigInt   @id @default(autoincrement()) @db.BigInt
-  seller_id    BigInt?  @db.BigInt
-  doc_type     String?  @db.VarChar(50)
-  storage_key  String   @db.Text
-  verified     Boolean  @default(false)
-  uploaded_at  DateTime @default(now())
+  document_id BigInt   @id @default(autoincrement()) @db.BigInt
+  seller_id   BigInt?  @db.BigInt
+  doc_type    String?  @db.VarChar(50)
+  storage_key String   @db.Text
+  verified    Boolean  @default(false)
+  uploaded_at DateTime @default(now())
 
-  seller       Seller?  @relation("Seller_documents", fields: [seller_id], references: [seller_id], onDelete: Cascade)
+  seller Seller? @relation("Seller_documents", fields: [seller_id], references: [seller_id], onDelete: Cascade)
 
-  @@map("seller_documents")
   @@index([seller_id])
+  @@map("seller_documents")
 }
 
 model SellerStat {
-  seller_id        BigInt   @id @db.BigInt
-  commission_rate  Decimal? @default("5.00") @db.Decimal(5,2)
-  rating           Decimal? @default("0.00") @db.Decimal(3,2)
-  total_sales_cents BigInt  @default(0) @db.BigInt
-  last_sale_at     DateTime?
+  seller_id         BigInt    @id @db.BigInt
+  commission_rate   Decimal?  @default("5.00") @db.Decimal(5, 2)
+  rating            Decimal?  @default("0.00") @db.Decimal(3, 2)
+  total_sales_cents BigInt    @default(0) @db.BigInt
+  last_sale_at      DateTime?
 
-  seller           Seller   @relation("Seller_stats", fields: [seller_id], references: [seller_id], onDelete: Cascade)
+  seller Seller @relation("Seller_stats", fields: [seller_id], references: [seller_id], onDelete: Cascade)
 
   @@map("seller_stats")
 }
