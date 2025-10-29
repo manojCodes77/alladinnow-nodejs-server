@@ -12,6 +12,7 @@ import InquiryRoutes from './routes/inquiry-routes';
 import QuotationRoutes from './routes/quotation-routes';
 import client from './config/db';
 import dotenv from 'dotenv';
+import cors from 'cors';
 
 dotenv.config();
 
@@ -20,6 +21,10 @@ const app: Express = express();
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// apply cors
+app.use(cors());
 
 app.get("/", (req: Request, res: Response) => {
     res.send("Airavat API Server is running!");
