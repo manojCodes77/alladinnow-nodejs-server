@@ -10,7 +10,7 @@ export async function createUser(req: Request, res: Response) {
   try {
     const { 
       email, 
-      password_hash, 
+      password, 
       role, 
       is_verified,
       status,
@@ -19,12 +19,12 @@ export async function createUser(req: Request, res: Response) {
       created_at
     } = req.body;
 
-    if (!email || !password_hash || !role) {
+    if (!email || !password || !role) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(password_hash, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = await prisma.users.create({
       data: {
