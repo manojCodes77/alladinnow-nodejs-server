@@ -150,19 +150,53 @@ model categories {
   @@map("categories")
 }
 
+// ==================== REFERENCE TABLES ====================
+
+model currencies {
+  currency_id   Int      @id @default(autoincrement())
+  currency_code String   @unique @db.VarChar(3) // ISO 4217 code (USD, EUR, GBP, etc.)
+  currency_name String   @db.VarChar(100)
+  symbol        String   @db.VarChar(10)
+  is_active     Boolean  @default(true)
+  display_order Int?
+  created_at    DateTime @default(now())
+
+  // Relations
+  products products[]
+  orders   orders[]
+
+  @@map("currencies")
+}
+
+model price_units {
+  unit_id       Int      @id @default(autoincrement())
+  unit_code     String   @unique @db.VarChar(20) // 'piece', 'kg', 'ton', 'liter', etc.
+  unit_name     String   @db.VarChar(100)
+  unit_type     String   @db.VarChar(50) // 'weight', 'volume', 'length', 'quantity', etc.
+  abbreviation  String?  @db.VarChar(10)
+  is_active     Boolean  @default(true)
+  display_order Int?
+  created_at    DateTime @default(now())
+
+  // Relations
+  products products[]
+
+  @@map("price_units")
+}
+
 // ==================== PRODUCTS ====================
 
 model products {
   product_id         BigInt   @id @default(autoincrement()) @db.BigInt
   business_id        BigInt?  @db.BigInt
   category_id        BigInt   @db.BigInt
+  currency_id        Int      @default(1) // Reference to currencies table
+  price_unit_id      Int?     // Reference to price_units table
   product_name       String   @db.VarChar(255)
   slug               String?  @unique @db.VarChar(255)
   description        String?  @db.Text
   specifications     String?  @db.Text
   base_price         Decimal? @db.Decimal(15, 2)
-  currency           String   @default("USD") @db.VarChar(10)
-  price_unit         String?  @db.VarChar(50) // 'piece', 'kg', 'ton', etc.
   min_order_quantity Int?
   max_order_quantity Int?
   unit_in_stock      Int?
@@ -177,8 +211,10 @@ model products {
   updated_at         DateTime @default(now()) @updatedAt
 
   // Relations
-  category categories @relation(fields: [category_id], references: [category_id])
-  business business?  @relation("business_products", fields: [business_id], references: [business_id])
+  category   categories   @relation(fields: [category_id], references: [category_id])
+  business   business?    @relation("business_products", fields: [business_id], references: [business_id])
+  currency   currencies   @relation(fields: [currency_id], references: [currency_id])
+  price_unit price_units? @relation(fields: [price_unit_id], references: [unit_id])
 
   images      product_images[]
   order_items order_items[]
@@ -186,6 +222,8 @@ model products {
 
   @@index([category_id])
   @@index([business_id])
+  @@index([currency_id])
+  @@index([price_unit_id])
   @@index([status])
   @@map("products")
 }
@@ -211,13 +249,13 @@ model orders {
   order_id               BigInt    @id @default(autoincrement()) @db.BigInt
   buyer_business_id      BigInt    @db.BigInt
   seller_business_id     BigInt    @db.BigInt
+  currency_id            Int       @default(1) // Reference to currencies table
   order_number           String?   @unique @db.VarChar(100)
   status                 String    @default("pending") @db.VarChar(50) // 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'
   tax_amount             Decimal?  @db.Decimal(15, 2)
   discount_amount        Decimal?  @db.Decimal(15, 2)
   shipping_amount        Decimal?  @db.Decimal(15, 2)
   final_amount           Decimal?  @db.Decimal(15, 2)
-  currency               String    @default("USD") @db.VarChar(10)
   delivery_address       String?   @db.Text
   delivery_city          String?   @db.VarChar(100)
   delivery_state         String?   @db.VarChar(100)
@@ -231,14 +269,16 @@ model orders {
   updated_at             DateTime  @default(now()) @updatedAt
 
   // Relations
-  buyer_business  business @relation("buyer_orders", fields: [buyer_business_id], references: [business_id])
-  seller_business business @relation("seller_orders", fields: [seller_business_id], references: [business_id])
+  buyer_business  business   @relation("buyer_orders", fields: [buyer_business_id], references: [business_id])
+  seller_business business   @relation("seller_orders", fields: [seller_business_id], references: [business_id])
+  currency        currencies @relation(fields: [currency_id], references: [currency_id])
 
   order_items order_items[]
   reviews     reviews[]
 
   @@index([buyer_business_id])
   @@index([seller_business_id])
+  @@index([currency_id])
   @@index([status])
   @@map("orders")
 }

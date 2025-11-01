@@ -8,16 +8,15 @@ const prisma = new PrismaClient();
 export async function createOrder(req: Request, res: Response) {
   try {
     const { 
-      order_id,
       buyer_business_id,
       seller_business_id,
+      currency_id,
       order_number,
       status,
       tax_amount,
       discount_amount,
       shipping_amount,
       final_amount,
-      currency,
       delivery_address,
       delivery_city,
       delivery_state,
@@ -25,7 +24,8 @@ export async function createOrder(req: Request, res: Response) {
       delivery_country,
       expected_delivery_date,
       payment_status,
-      buyer_notes
+      buyer_notes,
+      seller_notes
     } = req.body;
 
     if (!buyer_business_id || !seller_business_id) {
@@ -34,16 +34,15 @@ export async function createOrder(req: Request, res: Response) {
 
     const newOrder = await prisma.orders.create({
       data: {
-        order_id,
         buyer_business_id: BigInt(buyer_business_id),
         seller_business_id: BigInt(seller_business_id),
+        currency_id: currency_id || 1, // Defaults to USD (currency_id = 1)
         order_number,
         status: status || 'pending',
         tax_amount,
         discount_amount,
         shipping_amount,
         final_amount,
-        currency: currency || 'USD',
         delivery_address,
         delivery_city,
         delivery_state,
@@ -52,7 +51,13 @@ export async function createOrder(req: Request, res: Response) {
         expected_delivery_date,
         payment_status: payment_status || 'pending',
         buyer_notes,
+        seller_notes,
       },
+      include: {
+        buyer_business: true,
+        seller_business: true,
+        currency: true,
+      }
     });
 
     const safeOrder = convertBigIntToString(newOrder);
@@ -68,15 +73,26 @@ export async function createOrder(req: Request, res: Response) {
 // Get All Orders
 export async function getAllOrders(req: Request, res: Response) {
   try {
-    const { buyer_business_id, seller_business_id, status } = req.query;
+    const { buyer_business_id, seller_business_id, status, currency_id } = req.query;
     
     const where: any = {};
     if (buyer_business_id) where.buyer_business_id = BigInt(buyer_business_id as string);
     if (seller_business_id) where.seller_business_id = BigInt(seller_business_id as string);
     if (status) where.status = status;
+    if (currency_id) where.currency_id = parseInt(currency_id as string);
 
     const orders = await prisma.orders.findMany({
       where,
+      include: {
+        buyer_business: true,
+        seller_business: true,
+        currency: true,
+        order_items: {
+          include: {
+            product: true,
+          }
+        }
+      },
       orderBy: {
         created_at: 'desc',
       }
@@ -94,6 +110,22 @@ export async function getOrderById(req: Request, res: Response) {
     const { id } = req.params;
     const order = await prisma.orders.findUnique({
       where: { order_id: BigInt(id) },
+      include: {
+        buyer_business: true,
+        seller_business: true,
+        currency: true,
+        order_items: {
+          include: {
+            product: {
+              include: {
+                currency: true,
+                price_unit: true,
+              }
+            }
+          }
+        },
+        reviews: true,
+      }
     });
 
     if (!order) {
@@ -119,10 +151,18 @@ export async function updateOrder(req: Request, res: Response) {
     if (updateData.seller_business_id) {
       updateData.seller_business_id = BigInt(updateData.seller_business_id);
     }
+    if (updateData.currency_id) {
+      updateData.currency_id = parseInt(updateData.currency_id);
+    }
 
     const updatedOrder = await prisma.orders.update({
       where: { order_id: BigInt(id) },
       data: updateData,
+      include: {
+        buyer_business: true,
+        seller_business: true,
+        currency: true,
+      }
     });
 
     const safeOrder = convertBigIntToString(updatedOrder);

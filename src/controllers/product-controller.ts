@@ -8,15 +8,15 @@ const prisma = new PrismaClient();
 export async function createProduct(req: Request, res: Response) {
   try {
     const { 
-      product_id,
+      business_id,
       category_id,
+      currency_id,
+      price_unit_id,
       product_name,
       slug,
       description,
       specifications,
       base_price,
-      currency,
-      price_unit,
       min_order_quantity,
       max_order_quantity,
       unit_in_stock,
@@ -35,15 +35,15 @@ export async function createProduct(req: Request, res: Response) {
 
     const newProduct = await prisma.products.create({
       data: {
-        product_id,
+        business_id: business_id ? BigInt(business_id) : null,
         category_id: BigInt(category_id),
+        currency_id: currency_id || 1, // Defaults to USD (currency_id = 1)
+        price_unit_id: price_unit_id || 1,
         product_name,
         slug,
         description,
         specifications,
         base_price,
-        currency: currency || 'USD',
-        price_unit,
         min_order_quantity,
         max_order_quantity,
         unit_in_stock,
@@ -55,6 +55,12 @@ export async function createProduct(req: Request, res: Response) {
         status: status || 'draft',
         is_featured: is_featured || false,
       },
+      include: {
+        category: true,
+        currency: true,
+        price_unit: true,
+        business: true,
+      }
     });
 
     const safeProduct = convertBigIntToString(newProduct);
@@ -70,17 +76,23 @@ export async function createProduct(req: Request, res: Response) {
 // Get All Products
 export async function getAllProducts(req: Request, res: Response) {
   try {
-    const { category_id, status, is_featured } = req.query;
+    const { category_id, status, is_featured, business_id, currency_id } = req.query;
     
     const where: any = {};
     if (category_id) where.category_id = BigInt(category_id as string);
+    if (business_id) where.business_id = BigInt(business_id as string);
     if (status) where.status = status;
+    if (currency_id) where.currency_id = parseInt(currency_id as string);
     if (is_featured !== undefined) where.is_featured = is_featured === 'true';
 
     const products = await prisma.products.findMany({
       where,
       include: {
         category: true,
+        currency: true,
+        price_unit: true,
+        business: true,
+        images: true,
       }
     });
     const safeProducts = convertBigIntToString(products);
@@ -98,6 +110,10 @@ export async function getProductById(req: Request, res: Response) {
       where: { product_id: BigInt(id) },
       include: {
         category: true,
+        currency: true,
+        price_unit: true,
+        business: true,
+        images: true,
       }
     });
 
@@ -121,10 +137,25 @@ export async function updateProduct(req: Request, res: Response) {
     if (updateData.category_id) {
       updateData.category_id = BigInt(updateData.category_id);
     }
+    if (updateData.business_id) {
+      updateData.business_id = BigInt(updateData.business_id);
+    }
+    if (updateData.currency_id) {
+      updateData.currency_id = parseInt(updateData.currency_id);
+    }
+    if (updateData.price_unit_id) {
+      updateData.price_unit_id = parseInt(updateData.price_unit_id);
+    }
 
     const updatedProduct = await prisma.products.update({
       where: { product_id: BigInt(id) },
       data: updateData,
+      include: {
+        category: true,
+        currency: true,
+        price_unit: true,
+        business: true,
+      }
     });
 
     const safeProduct = convertBigIntToString(updatedProduct);
@@ -167,6 +198,10 @@ export async function searchProducts(req: Request, res: Response) {
       },
       include: {
         category: true,
+        currency: true,
+        price_unit: true,
+        business: true,
+        images: true,
       }
     });
 

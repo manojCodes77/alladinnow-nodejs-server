@@ -10,6 +10,8 @@ import OrderItemRoutes from './routes/order-item-routes';
 import ReviewRoutes from './routes/review-routes';
 import InquiryRoutes from './routes/inquiry-routes';
 import QuotationRoutes from './routes/quotation-routes';
+import CurrencyRoutes from './routes/currency-routes';
+import PriceUnitRoutes from './routes/price-unit-routes';
 import client from './config/db';
 import dotenv from 'dotenv';
 import cors from 'cors';
@@ -42,6 +44,8 @@ app.use("/api/v1/order-items", OrderItemRoutes);
 app.use("/api/v1/reviews", ReviewRoutes);
 app.use("/api/v1/inquiries", InquiryRoutes);
 app.use("/api/v1/quotations", QuotationRoutes);
+app.use("/api/v1/currencies", CurrencyRoutes);
+app.use("/api/v1/price-units", PriceUnitRoutes);
 
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
