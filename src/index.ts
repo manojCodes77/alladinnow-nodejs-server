@@ -11,6 +11,7 @@ import InquiryRoutes from './routes/inquiry-routes';
 import QuotationRoutes from './routes/quotation-routes';
 import CurrencyRoutes from './routes/currency-routes';
 import PriceUnitRoutes from './routes/price-unit-routes';
+import BusinessTypeRoutes from './routes/business-types-routes';
 import client from './config/db';
 import dotenv from 'dotenv';
 import cors from 'cors';
@@ -44,6 +45,7 @@ app.use("/api/v1/inquiries", InquiryRoutes);
 app.use("/api/v1/quotations", QuotationRoutes);
 app.use("/api/v1/currencies", CurrencyRoutes);
 app.use("/api/v1/price-units", PriceUnitRoutes);
+app.use("/api/v1/business-types", BusinessTypeRoutes);
 
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
